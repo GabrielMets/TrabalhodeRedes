@@ -7,6 +7,7 @@ import hmac
 SECRET_KEY = b"0123456789abcdef0123456789abcdef"
 IP_SERVIDOR = "127.0.0.1"
 PORTA = 123
+cripto = True
 
 def gerar_hmac(mensagem: bytes, chave: bytes) -> bytes:
     return hmac.new(chave, mensagem, hashlib.sha256).digest()
@@ -40,28 +41,44 @@ def cria_servidor_ntp(PORTA, IP_SERVIDOR):
     servidor_socket.bind((IP_SERVIDOR, PORTA))
     print(f"Servidor NTP iniciado na porta {PORTA} e no IP {IP_SERVIDOR}...")
 
-    while True:
-        try:
-            hmac_cliente, endereco_cliente = servidor_socket.recvfrom(32)  #recebe o HMAC primeiro
-            dados_criptografados, _ = servidor_socket.recvfrom(48)  #recebe os dados criptografados
+    if cripto:
+        print('ta criptado')
+        while True:
+            try:
+                hmac_cliente, endereco_cliente = servidor_socket.recvfrom(32)  #recebe o HMAC primeiro
+                dados_criptografados, _ = servidor_socket.recvfrom(48)  #recebe os dados criptografados
             
-            if not verificar_hmac(dados_criptografados, SECRET_KEY, hmac_cliente):
-                print("Erro: Falha na autenticação do cliente.")
-                continue
+                if not verificar_hmac(dados_criptografados, SECRET_KEY, hmac_cliente):
+                    print("Erro: Falha na autenticação do cliente.")
+                    continue
 
-            dados = descriptografar_mensagem(dados_criptografados, SECRET_KEY)
+                dados = descriptografar_mensagem(dados_criptografados, SECRET_KEY)
 
-            resposta_ntp = processa_requisicao_ntp(dados)
+                resposta_ntp = processa_requisicao_ntp(dados)
 
-            if resposta_ntp:
-                resposta_criptografada = criptografar_mensagem(resposta_ntp, SECRET_KEY)
-                hmac_resposta = gerar_hmac(resposta_criptografada, SECRET_KEY)
+                if resposta_ntp:
+                    resposta_criptografada = criptografar_mensagem(resposta_ntp, SECRET_KEY)
+                    hmac_resposta = gerar_hmac(resposta_criptografada, SECRET_KEY)
 
-                servidor_socket.sendto(hmac_resposta, endereco_cliente)
-                servidor_socket.sendto(resposta_criptografada, endereco_cliente)
+                    servidor_socket.sendto(hmac_resposta, endereco_cliente)
+                    servidor_socket.sendto(resposta_criptografada, endereco_cliente)
 
-        except Exception as e:
-            print(f"Erro ao processar solicitação: {e}")
+            except Exception as e:
+                print(f"Erro ao processar solicitação: {e}")
+    else:
+        print('nao ta ')
+        while True:     
+            dados, endereco_cliente = servidor_socket.recvfrom(48)  #recebe os dados criptografados
+
+            try:   
+            
+                resposta_ntp = processa_requisicao_ntp(dados)
+
+                if resposta_ntp:
+                    servidor_socket.sendto(resposta_ntp, endereco_cliente)
+                
+            except Exception as e:
+                print(f"Erro ao processar solicitação: {e}")
 
 def processa_requisicao_ntp(dados):
 

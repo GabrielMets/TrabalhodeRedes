@@ -6,6 +6,7 @@ import hmac
 
 PORTA = 123
 SECRET_KEY = b"0123456789abcdef0123456789abcdef"
+cripto = True
 
 def gerar_hmac(mensagem: bytes, chave: bytes) -> bytes:
     return hmac.new(chave, mensagem, hashlib.sha256).digest()
@@ -77,42 +78,71 @@ def imprime_pacote_hex(pacote):
     print()
 
 def get_tempo_servidor_local(END_Servidor, PORTA, pacote):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) #cria um socket UDP
-    sock.settimeout(5)  #timeout de 5 segundos
+    if cripto:
+        print('ta criptado.')
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) #cria um socket UDP
+        sock.settimeout(5)  #timeout de 5 segundos
+
+        pacote_criptografado = criptografar_mensagem(pacote, SECRET_KEY)
+        hmac_gerado = gerar_hmac(pacote_criptografado, SECRET_KEY)
+
+        sock.sendto(hmac_gerado, (END_Servidor, PORTA))
+        sock.sendto(pacote_criptografado, (END_Servidor, PORTA))
+
+        T1 = time.time() #registra o tempo de envio (Origin Timestamp)
+
+        hmac_recebido, _ = sock.recvfrom(32)  # Recebe o HMAC primeiro
+        dados_criptografados, _ = sock.recvfrom(48)  # Recebe os dados criptografados
+
+        if not verificar_hmac(dados_criptografados, SECRET_KEY, hmac_recebido):
+            print("Erro: Falha na autenticação do servidor.")
+            return None
+
+        dados = descriptografar_mensagem(dados_criptografados, SECRET_KEY)
+
+        T4 = time.time()
+
+        unpacked = struct.unpack('!12I', dados)
+
+        T2 = unpacked[8] - 2208988800
+        T3 = unpacked[10] - 2208988800
+
+        T2 = T2 + (unpacked[9] / 2**32)
+        T3 = T3 + (unpacked[11] / 2**32)
+
+        offset = ((T2 - T1) + (T3 - T4)) / 2
+
+        correct_time = T4 + offset
+
+        return correct_time
     
-    pacote_criptografado = criptografar_mensagem(pacote, SECRET_KEY)
-    hmac_gerado = gerar_hmac(pacote_criptografado, SECRET_KEY)
+    else:
+        print('nao ta ')
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) #cria um socket UDP
+        sock.settimeout(5)  #timeout de 5 segundos
 
-    sock.sendto(hmac_gerado, (END_Servidor, PORTA))
-    sock.sendto(pacote_criptografado, (END_Servidor, PORTA))
+        sock.sendto(pacote, (END_Servidor, PORTA))
+        T1 = time.time() #registra o tempo de envio (Origin Timestamp)
 
-    T1 = time.time() #registra o tempo de envio (Origin Timestamp)
+        dados, _ = sock.recvfrom(48)  # Recebe os dados
 
-    hmac_recebido, _ = sock.recvfrom(32)  # Recebe o HMAC primeiro
-    dados_criptografados, _ = sock.recvfrom(48)  # Recebe os dados criptografados
+        T4 = time.time()
 
-    if not verificar_hmac(dados_criptografados, SECRET_KEY, hmac_recebido):
-        print("Erro: Falha na autenticação do servidor.")
-        return None
+        unpacked = struct.unpack('!12I', dados)
 
-    dados = descriptografar_mensagem(dados_criptografados, SECRET_KEY)
+        T2 = unpacked[8] - 2208988800
+        T3 = unpacked[10] - 2208988800
 
-    T4 = time.time()
+        T2 = T2 + (unpacked[9] / 2**32)
+        T3 = T3 + (unpacked[11] / 2**32)
 
-    unpacked = struct.unpack('!12I', dados)
+        offset = ((T2 - T1) + (T3 - T4)) / 2
 
-    T2 = unpacked[8] - 2208988800
-    T3 = unpacked[10] - 2208988800
+        correct_time = T4 + offset
 
-    T2 = T2 + (unpacked[9] / 2**32)
-    T3 = T3 + (unpacked[11] / 2**32)
+        return correct_time
 
-    offset = ((T2 - T1) + (T3 - T4)) / 2
 
-    correct_time = T4 + offset
-
-    return correct_time
-    
 def get_tempo_official(END_Servidor, PORTA, pacote):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) #cria um socket UDP
     sock.settimeout(5)  #timeout de 5 segundos
@@ -123,11 +153,11 @@ def get_tempo_official(END_Servidor, PORTA, pacote):
     T1 = time.time() #registra o tempo de envio (Origin Timestamp)
 
 
-    data, _ = sock.recvfrom(48) #recebe a resposta do servidor
+    dados, _ = sock.recvfrom(48) #recebe a resposta do servidor
 
     T4 = time.time() #registra o tempo de recebimento (Receive Timestamp)
 
-    unpacked = struct.unpack('!12I', data) #desempacota os dados do pacote NTP
+    unpacked = struct.unpack('!12I', dados) #desempacota os dados do pacote NTP
 
     #extrai os timestamps relevantes
     T2 = unpacked[8] - 2208988800  #receive Timestamp (converte para época Unix)
