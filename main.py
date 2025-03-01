@@ -6,7 +6,7 @@ import hmac
 
 PORTA = 123
 SECRET_KEY = b"0123456789abcdef0123456789abcdef"
-cripto = True
+cripto = None
 
 def gerar_hmac(mensagem: bytes, chave: bytes) -> bytes:
     return hmac.new(chave, mensagem, hashlib.sha256).digest()

@@ -7,7 +7,7 @@ import hmac
 SECRET_KEY = b"0123456789abcdef0123456789abcdef"
 IP_SERVIDOR = "127.0.0.1"
 PORTA = 123
-cripto = True
+cripto = None
 
 def gerar_hmac(mensagem: bytes, chave: bytes) -> bytes:
     return hmac.new(chave, mensagem, hashlib.sha256).digest()
@@ -88,10 +88,16 @@ def processa_requisicao_ntp(dados):
 
     try:
         solicitacao_ntp = struct.unpack("!12I", dados)
+        li_vn_mode = (0 << 6) | (4 << 3) | 4
+
+        # Combina a parte inteira e fracionária dos timestamps
+        
         
         resposta_ntp = struct.pack(
+            #"!BBBBIIIQQQQQQ",
             "!12I",
-            (solicitacao_ntp[0] & 0xFFFFFFC7) | 0x24,
+            #(solicitacao_ntp[0] & 0xFFFFFFC0) | 0x24 | 0x04,
+            li_vn_mode,
             1,
             solicitacao_ntp[2],
             solicitacao_ntp[3],
@@ -104,6 +110,8 @@ def processa_requisicao_ntp(dados):
             int(timestamp_atual),
             fracao
         )
+
+        print(f"Pacote NTP gerado: {resposta_ntp.hex()}")
 
         return resposta_ntp
     
