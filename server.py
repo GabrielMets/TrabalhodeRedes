@@ -7,7 +7,7 @@ import hmac
 SECRET_KEY = b"0123456789abcdef0123456789abcdef"
 IP_SERVIDOR = "127.0.0.1"
 PORTA = 123
-cripto = None
+cripto = True
 
 def gerar_hmac(mensagem: bytes, chave: bytes) -> bytes:
     return hmac.new(chave, mensagem, hashlib.sha256).digest()
@@ -42,7 +42,7 @@ def cria_servidor_ntp(PORTA, IP_SERVIDOR):
     print(f"Servidor NTP iniciado na porta {PORTA} e no IP {IP_SERVIDOR}...")
 
     if cripto:
-        print('ta criptado')
+        print('Modo de critptografia Ativado... ')
         while True:
             try:
                 hmac_cliente, endereco_cliente = servidor_socket.recvfrom(32)  #recebe o HMAC primeiro
@@ -66,7 +66,7 @@ def cria_servidor_ntp(PORTA, IP_SERVIDOR):
             except Exception as e:
                 print(f"Erro ao processar solicitação: {e}")
     else:
-        print('nao ta ')
+        print('Modo de critptografia Desativado... ')
         while True:     
             dados, endereco_cliente = servidor_socket.recvfrom(48)  #recebe os dados criptografados
 
@@ -84,30 +84,30 @@ def processa_requisicao_ntp(dados):
 
     timestamp_atual = time.time() + 2208988800  #converte para NTP
 
-    fracao = int((timestamp_atual - int(timestamp_atual)) * (2**32)) #sla porque
-
+    fracao = int((timestamp_atual - int(timestamp_atual)) * (2**32)) #fracao dos segundos
+    
+    resposta_ntp = bytearray(48)
     try:
         solicitacao_ntp = struct.unpack("!12I", dados)
-        li_vn_mode = (0 << 6) | (4 << 3) | 4
-
-        # Combina a parte inteira e fracionária dos timestamps
         
         
-        resposta_ntp = struct.pack(
-            #"!BBBBIIIQQQQQQ",
-            "!12I",
-            #(solicitacao_ntp[0] & 0xFFFFFFC0) | 0x24 | 0x04,
-            li_vn_mode,
-            1,
-            solicitacao_ntp[2],
-            solicitacao_ntp[3],
-            0,
-            0,
-            0,
-            solicitacao_ntp[8],
-            int(timestamp_atual),
+        struct.pack_into(
+            "!BBBBIIIQIIIIII",  # Formato do pacote
+            resposta_ntp,  # Bytearray onde será armazenado
+            0,  # Offset inicial
+            (0 << 6) | (4 << 3) | 4,  # LI (0) | Versão (4) | Modo (4 - Server)
+            1,  # Stratum (1 = Primary Server)
+            0,  # Poll Interval
+            1,  # Precision
+            solicitacao_ntp[2],  # Root Delay
+            solicitacao_ntp[3],  # Root Dispersion
+            0,  # Reference ID (0 para servidores de referência)
+            int(timestamp_atual),  # Reference TIMESTAMP
             fracao,
-            int(timestamp_atual),
+            solicitacao_ntp[8],   # Origin TIMESTAMP
+            int(timestamp_atual),  # Receive Timestamp
+            fracao,
+            int(timestamp_atual),  # Transmit Timestamp
             fracao
         )
 

@@ -6,7 +6,7 @@ import hmac
 
 PORTA = 123
 SECRET_KEY = b"0123456789abcdef0123456789abcdef"
-cripto = None
+cripto = True
 
 def gerar_hmac(mensagem: bytes, chave: bytes) -> bytes:
     return hmac.new(chave, mensagem, hashlib.sha256).digest()
@@ -26,7 +26,7 @@ def descriptografar_mensagem(mensagem_criptografada: bytes, chave: bytes) -> byt
     return mensagem_descriptografada
 
 def cria_pacote_ntp():
-    versao_e_modo = (3 << 3) | 3 #versão 3, modo cliente
+    versao_e_modo = (4 << 3) | 3 #versão 4, modo cliente
 
     camada = 0
     precisao = 0
@@ -34,10 +34,16 @@ def cria_pacote_ntp():
     atraso_raiz = 0
     dispersao_raiz = 0
     id_referencia = 0
-    carimbo_de_tempo_origem = 0
     carimbo_de_tempo_recebimento = 0
     carimbo_de_tempo_transmissao = 0
+    
+    # Obtém o tempo atual em segundos desde o epoch (1º de janeiro de 1970)
+    tempo_atual = time.time()
 
+    # Converte o tempo atual para o formato NTP (segundos desde 1º de janeiro de 1900)
+    ntp_epoch = 2208988800  # Diferença entre 1900 e 1970 em segundos
+    segundos_ntp = int(tempo_atual + ntp_epoch)
+    fracao_ntp = int((tempo_atual - int(tempo_atual)) * 2**32)
     
     pacote = bytearray(48)  #cria um bytearray de 48 bytes preenchido com zeros
 
@@ -53,11 +59,11 @@ def cria_pacote_ntp():
         atraso_raiz,
         dispersao_raiz,
         id_referencia,
-        carimbo_de_tempo_origem,
+        segundos_ntp << 32 | fracao_ntp,
         carimbo_de_tempo_recebimento,
         carimbo_de_tempo_transmissao,
     )
-
+    
     return pacote
   
 def Servidor_teclado():
@@ -79,7 +85,7 @@ def imprime_pacote_hex(pacote):
 
 def get_tempo_servidor_local(END_Servidor, PORTA, pacote):
     if cripto:
-        print('ta criptado.')
+        print('Modo de critptografia Ativado... ')
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) #cria um socket UDP
         sock.settimeout(5)  #timeout de 5 segundos
 
@@ -117,7 +123,7 @@ def get_tempo_servidor_local(END_Servidor, PORTA, pacote):
         return correct_time
     
     else:
-        print('nao ta ')
+        print('Modo de critptografia Desativado... ')
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) #cria um socket UDP
         sock.settimeout(5)  #timeout de 5 segundos
 
@@ -186,4 +192,3 @@ else:
     tempo = get_tempo_official(END_Servidor, PORTA, pacote)
 
 print(f"Tempo correto (UTC): {time.ctime(tempo)}")
-
