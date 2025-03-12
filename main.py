@@ -97,8 +97,8 @@ def get_tempo_servidor_local(END_Servidor, PORTA, pacote):
 
         T1 = time.time() #registra o tempo de envio (Origin Timestamp)
 
-        hmac_recebido, _ = sock.recvfrom(32)  # Recebe o HMAC primeiro
-        dados_criptografados, _ = sock.recvfrom(48)  # Recebe os dados criptografados
+        hmac_recebido, _ = sock.recvfrom(32)  #recebe o HMAC primeiro
+        dados_criptografados, _ = sock.recvfrom(48)  #recebe os dados criptografados
 
         if not verificar_hmac(dados_criptografados, SECRET_KEY, hmac_recebido):
             print("Erro: Falha na autenticação do servidor.")

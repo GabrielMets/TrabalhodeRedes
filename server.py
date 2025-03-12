@@ -26,13 +26,6 @@ def descriptografar_mensagem(mensagem_criptografada: bytes, chave: bytes) -> byt
     mensagem_descriptografada = bytes([a ^ b for a, b in zip(mensagem_criptografada, chave_repetida)])
     return mensagem_descriptografada
 
-def imprime_pacote_hex(pacote):
-    """Imprime um pacote NTP em hexadecimal."""
-    for i, byte in enumerate(pacote):
-        print(f"Byte {i}: {byte:02X}", end=" ")
-        if (i + 1) % 4 == 0:
-            print()
-    print()
 
 def cria_servidor_ntp(PORTA, IP_SERVIDOR):
 
@@ -99,19 +92,17 @@ def processa_requisicao_ntp(dados):
             1,  # Stratum (1 = Primary Server)
             0,  # Poll Interval
             1,  # Precision
-            solicitacao_ntp[2],  # Root Delay
-            solicitacao_ntp[3],  # Root Dispersion
-            0,  # Reference ID (0 para servidores de referência)
-            int(timestamp_atual),  # Reference TIMESTAMP
+            solicitacao_ntp[2],  #root Delay
+            solicitacao_ntp[3],  #root Dispersion
+            0,  #reference ID (0 para servidores de referência)
+            int(timestamp_atual),  #reference TIMESTAMP
             fracao,
-            solicitacao_ntp[8],   # Origin TIMESTAMP
-            int(timestamp_atual),  # Receive Timestamp
+            solicitacao_ntp[8],   #origin TIMESTAMP
+            int(timestamp_atual),  #receive Timestamp
             fracao,
-            int(timestamp_atual),  # Transmit Timestamp
+            int(timestamp_atual),  #transmit Timestamp
             fracao
         )
-
-        print(f"Pacote NTP gerado: {resposta_ntp.hex()}")
 
         return resposta_ntp
     
