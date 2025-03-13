@@ -4,11 +4,11 @@ import time
 import hashlib
 import hmac
 
-PORTA = 123
+PORTA = 123 
 SECRET_KEY = b"0123456789abcdef0123456789abcdef"
-cripto = True
+cripto = None #usar None/True para desativar/ativar criptografia
 
-def gerar_hmac(mensagem: bytes, chave: bytes) -> bytes:
+def gerar_hmac(mensagem: bytes, chave: bytes) -> bytes:  
     return hmac.new(chave, mensagem, hashlib.sha256).digest()
 
 def verificar_hmac(mensagem: bytes, chave: bytes, hmac_recebido: bytes) -> bool:
@@ -26,7 +26,7 @@ def descriptografar_mensagem(mensagem_criptografada: bytes, chave: bytes) -> byt
     return mensagem_descriptografada
 
 def cria_pacote_ntp():
-    versao_e_modo = (4 << 3) | 3 #versão 4, modo cliente
+    versao_e_modo = (4 << 3) | 3 #versão 4, modo 3 cliente
 
     camada = 0
     precisao = 0
@@ -37,11 +37,11 @@ def cria_pacote_ntp():
     carimbo_de_tempo_recebimento = 0
     carimbo_de_tempo_transmissao = 0
     
-    # Obtém o tempo atual em segundos desde o epoch (1º de janeiro de 1970)
+    #obtém o tempo atual em segundos desde o epoch
     tempo_atual = time.time()
 
-    # Converte o tempo atual para o formato NTP (segundos desde 1º de janeiro de 1900)
-    ntp_epoch = 2208988800  # Diferença entre 1900 e 1970 em segundos
+    #converte o tempo atual para o formato NTP
+    ntp_epoch = 2208988800  #diferença entre 1900 e 1970 em segundos
     segundos_ntp = int(tempo_atual + ntp_epoch)
     fracao_ntp = int((tempo_atual - int(tempo_atual)) * 2**32)
     
@@ -66,7 +66,7 @@ def cria_pacote_ntp():
     
     return pacote
   
-def Servidor_teclado():
+def Servidor_teclado(): #função para receber o IP do servidor
     END_Servidor = input('Por favor digite o server: ')
    
     if not END_Servidor:
@@ -75,49 +75,43 @@ def Servidor_teclado():
     print('O SERVER É:', END_Servidor)
     return END_Servidor      
 
-def imprime_pacote_hex(pacote):
-
-    for i, byte in enumerate(pacote):
-        print(f"Byte {i}: {byte:02X}", end=" ")
-        if (i + 1) % 4 == 0:
-            print()
-    print()
-
-def get_tempo_servidor_local(END_Servidor, PORTA, pacote):
+def get_tempo_servidor_local(END_Servidor, PORTA, pacote): #função principal para receber NTP de servidores locais
     if cripto:
         print('Modo de critptografia Ativado... ')
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) #cria um socket UDP
         sock.settimeout(5)  #timeout de 5 segundos
 
-        pacote_criptografado = criptografar_mensagem(pacote, SECRET_KEY)
-        hmac_gerado = gerar_hmac(pacote_criptografado, SECRET_KEY)
+        pacote_criptografado = criptografar_mensagem(pacote, SECRET_KEY) #criptografar_mensagem
+        hmac_gerado = gerar_hmac(pacote_criptografado, SECRET_KEY) #gerar_hmac
 
-        sock.sendto(hmac_gerado, (END_Servidor, PORTA))
-        sock.sendto(pacote_criptografado, (END_Servidor, PORTA))
+        sock.sendto(hmac_gerado, (END_Servidor, PORTA)) #envia hmac_gerado
+        sock.sendto(pacote_criptografado, (END_Servidor, PORTA)) #envia pacote_criptografado
 
         T1 = time.time() #registra o tempo de envio (Origin Timestamp)
 
         hmac_recebido, _ = sock.recvfrom(32)  #recebe o HMAC primeiro
         dados_criptografados, _ = sock.recvfrom(48)  #recebe os dados criptografados
 
-        if not verificar_hmac(dados_criptografados, SECRET_KEY, hmac_recebido):
+        if not verificar_hmac(dados_criptografados, SECRET_KEY, hmac_recebido): #verifica o hmac
             print("Erro: Falha na autenticação do servidor.")
             return None
 
-        dados = descriptografar_mensagem(dados_criptografados, SECRET_KEY)
+        dados = descriptografar_mensagem(dados_criptografados, SECRET_KEY) #descriptografa a mensagem
 
-        T4 = time.time()
+        T4 = time.time() #registra o tempo de recebimento (Receive Timestamp)
 
-        unpacked = struct.unpack('!12I', dados)
+        unpacked = struct.unpack('!12I', dados) #desempacota os dados do pacote NTP
 
+        #extrai os timestamps relevantes
         T2 = unpacked[8] - 2208988800
         T3 = unpacked[10] - 2208988800
 
+        #converte os timestamps para segundos
         T2 = T2 + (unpacked[9] / 2**32)
         T3 = T3 + (unpacked[11] / 2**32)
 
+        #calcula o offset e o tempo correto
         offset = ((T2 - T1) + (T3 - T4)) / 2
-
         correct_time = T4 + offset
 
         return correct_time
@@ -132,24 +126,25 @@ def get_tempo_servidor_local(END_Servidor, PORTA, pacote):
 
         dados, _ = sock.recvfrom(48)  # Recebe os dados
 
-        T4 = time.time()
+        T4 = time.time() #registra o tempo de recebimento (Receive Timestamp)
 
-        unpacked = struct.unpack('!12I', dados)
-
+        unpacked = struct.unpack('!12I', dados) #desempacota os dados do pacote NTP
+        
+        #extrai os timestamps relevantes
         T2 = unpacked[8] - 2208988800
         T3 = unpacked[10] - 2208988800
 
+        #converte os timestamps para segundos
         T2 = T2 + (unpacked[9] / 2**32)
         T3 = T3 + (unpacked[11] / 2**32)
 
+        #calcula o offset e o tempo correto
         offset = ((T2 - T1) + (T3 - T4)) / 2
-
         correct_time = T4 + offset
 
         return correct_time
 
-
-def get_tempo_official(END_Servidor, PORTA, pacote):
+def get_tempo_official(END_Servidor, PORTA, pacote): #função principal para receber NTP de servidores oficiais
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) #cria um socket UDP
     sock.settimeout(5)  #timeout de 5 segundos
 
@@ -166,13 +161,13 @@ def get_tempo_official(END_Servidor, PORTA, pacote):
     unpacked = struct.unpack('!12I', dados) #desempacota os dados do pacote NTP
 
     #extrai os timestamps relevantes
-    T2 = unpacked[8] - 2208988800  #receive Timestamp (converte para época Unix)
-    T3 = unpacked[10] - 2208988800  #transmit Timestamp (converte para época Unix)
+    T2 = unpacked[8] - 2208988800  
+    T3 = unpacked[10] - 2208988800  
 
    
     #converte os timestamps para segundos
-    T2 = T2 + (unpacked[9] / 2**32)  #adiciona a fração de segundos
-    T3 = T3 + (unpacked[11] / 2**32)  #adiciona a fração de segundos
+    T2 = T2 + (unpacked[9] / 2**32)  
+    T3 = T3 + (unpacked[11] / 2**32)  
 
     #calcula o offset e o tempo correto
     offset = ((T2 - T1) + (T3 - T4)) / 2
@@ -182,8 +177,8 @@ def get_tempo_official(END_Servidor, PORTA, pacote):
        
 # início da execução do programa
 #-----------------------------------------------------
-END_Servidor = Servidor_teclado()
-pacote = cria_pacote_ntp()  
+END_Servidor = Servidor_teclado() #recebe END_Servidor
+pacote = cria_pacote_ntp() #recebe pacote
 
 
 if END_Servidor == '127.0.0.1':
